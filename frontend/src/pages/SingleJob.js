@@ -1,0 +1,446 @@
+import {
+  Card,
+  CardContent,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
+import { Box, Container } from "@mui/system";
+import { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate, useParams } from "react-router-dom";
+import Footer from "../component/Footer";
+import LoadingBox from "../component/LoadingBox";
+import Navbar from "../component/Navbar";
+import { jobLoadSingleAction } from "../redux/actions/jobAction";
+import Button from "@mui/material/Button";
+import {
+  userApplyJobAction,
+  userSubmitReportAction,
+} from "../redux/actions/userAction";
+import { Avatar, IconButton, Tooltip, useTheme } from "@mui/material";
+import FlagOutlinedIcon from "@mui/icons-material/FlagOutlined";
+import SaveJobButton from "../component/SaveJobButton";
+import { savedJobsLoadAction } from "../redux/actions/savedJobAction";
+
+const REPORT_REASONS = [
+  { value: "spam", label: "Spam" },
+  { value: "fake_job", label: "Fake Job" },
+  { value: "inappropriate_content", label: "Inappropriate Content" },
+  { value: "misleading_info", label: "Misleading Information" },
+  { value: "scam", label: "Scam" },
+  { value: "other", label: "Other" },
+];
+
+const SingleJob = () => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { singleJob, loading } = useSelector((state) => state.singleJob);
+  const { jobs } = useSelector((state) => state.loadJobs);
+  const { palette } = useTheme();
+  const { userInfo } = useSelector((state) => state.signIn);
+  const [formdata, setFormdata] = useState({
+    coverLetter: "",
+    assessment: "",
+  });
+  const [open, setOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+
+  // Report dialog state
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
+  const { loading: reportLoading } = useSelector(
+    (state) => state.userSubmitReport,
+  );
+
+  const handleReportSubmit = () => {
+    if (!reportReason) return;
+    dispatch(
+      userSubmitReportAction({
+        jobId: singleJob._id,
+        reason: reportReason,
+        details: reportDetails,
+      }),
+    );
+    setReportOpen(false);
+    setReportReason("");
+    setReportDetails("");
+  };
+
+  const { id } = useParams();
+
+  const handleClose = () => {
+    setOpen(false);
+  };
+
+  useEffect(() => {
+    dispatch(jobLoadSingleAction(id));
+  }, [dispatch, id]);
+
+  useEffect(() => {
+    if (userInfo && Number(userInfo.role?.role ?? userInfo?.role ?? 0) === 0) {
+      dispatch(savedJobsLoadAction(userInfo.role?._id || userInfo?._id));
+    }
+  }, [dispatch, userInfo]);
+
+  const onSubmitHandler = (e) => {
+    e.preventDefault();
+    const formData = {
+      coverLetter: formdata.coverLetter,
+      assessment: formdata.assessment,
+      title: singleJob && singleJob.title,
+      description: singleJob && singleJob.description,
+      salary: singleJob && singleJob.salary,
+      location: singleJob && singleJob.location,
+      role: singleJob && singleJob.role,
+      id: singleJob && singleJob._id,
+      singleJob,
+    };
+    dispatch(userApplyJobAction(formData));
+    setFormdata({ coverLetter: "", assessment: "" });
+  };
+
+  const changeHandler = (e) => {
+    const { name, value } = e.target;
+    setFormdata((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  };
+
+  const isRecruiter = Number(userInfo?.role?.role ?? userInfo?.role ?? 0) === 1;
+  const isOwner = singleJob
+    ? String(singleJob.user?._id || singleJob.user) ===
+      String(userInfo?.role?._id)
+    : false;
+  const canApply = userInfo && !isRecruiter && !isOwner;
+
+  const applyForAJob = () => {
+    if (!userInfo) {
+      navigate("/login");
+    } else if (isRecruiter) {
+      alert("Recruiters cannot apply to jobs.");
+    } else if (isOwner) {
+      alert("You cannot apply to your own job.");
+    } else {
+      setShowForm(true);
+    }
+  };
+
+  return (
+    <>
+      <Box sx={{ bgcolor: "#fafafa", minHeight: "100vh" }}>
+        <Navbar />
+        <Box sx={{ minHeight: "85vh" }}>
+          <Container sx={{ pt: "30px" }}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={{ xs: 1, sm: 2, md: 4 }}
+            >
+              <Box sx={{ flex: 4, p: 2 }}>
+                {loading ? (
+                  <LoadingBox />
+                ) : (
+                  <Card
+                    sx={{
+                      width: "100%",
+                      borderRadius: "12px",
+                      boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)",
+                    }}
+                  >
+                    <CardContent>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <Typography
+                          variant="h5"
+                          component="h2"
+                          sx={{ fontWeight: 700 }}
+                        >
+                          {singleJob && singleJob.title}
+                        </Typography>
+                        {singleJob && <SaveJobButton jobId={singleJob._id} />}
+                      </Box>
+
+                      <Typography
+                        variant="subtitle1"
+                        sx={{
+                          fontWeight: 600,
+                          fontSize: "18px",
+                          color: "#555",
+                        }}
+                      >
+                        {singleJob && singleJob.companyName}
+                      </Typography>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          mb: 2,
+                        }}
+                      >
+                        <Tooltip title="Company logo">
+                          <IconButton sx={{ p: 0 }}>
+                            <Avatar
+                              alt=""
+                              src={singleJob && singleJob.profilePhoto}
+                              sx={{ color: palette.primary.white }}
+                            />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                      <Typography
+                        variant="body1"
+                        sx={{ fontWeight: 600, fontSize: "16px", mt: 2 }}
+                      >
+                        Salary: ${singleJob && singleJob.salary}
+                      </Typography>
+
+                      <Typography
+                        variant="body1"
+                        sx={{ fontWeight: 600, fontSize: "16px", mt: 1 }}
+                      >
+                        Location: {singleJob && singleJob.location}
+                      </Typography>
+
+                      {singleJob?.applicationDeadline && (
+                        <Typography
+                          variant="body1"
+                          sx={{ fontWeight: 600, fontSize: "16px", mt: 1 }}
+                        >
+                          Application Deadline:{" "}
+                          {new Date(singleJob.applicationDeadline)
+                            .toISOString()
+                            .slice(0, 10)}
+                        </Typography>
+                      )}
+
+                      <Typography variant="body2" sx={{ mt: 2 }}>
+                        <Box
+                          component="span"
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: "16px",
+                            display: "inline-block",
+                            marginRight: "8px",
+                          }}
+                        >
+                          Description:
+                        </Box>
+                        <Box component="span">
+                          {singleJob && singleJob.description}
+                        </Box>
+                      </Typography>
+
+                      <Typography variant="body2" sx={{ mt: 2 }}>
+                        <Box
+                          component="span"
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: "16px",
+                            display: "inline-block",
+                          }}
+                        >
+                          Additional Information:
+                        </Box>
+                        <Box
+                          component="span"
+                          sx={{ display: "inline-block", ml: 1 }}
+                        >
+                          {singleJob && singleJob.AdditionalInformation}
+                        </Box>
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <br />
+                {showForm && canApply && (
+                  <>
+                    <Card>
+                      <DialogTitle>
+                        <Typography
+                          variant="h9"
+                          component="span"
+                          sx={{ fontWeight: "900" }}
+                        >
+                          Apply for Job
+                        </Typography>
+                      </DialogTitle>
+                      <DialogContent>
+                        <form onSubmit={onSubmitHandler}>
+                          <DialogContentText id="alert-dialog-slide-description">
+                            <div style={{ fontWeight: "700" }}>
+                              Cover letter
+                            </div>
+
+                            <br />
+                            <div style={{ fontWeight: "700" }}>
+                              Why should you be hired for this role?
+                            </div>
+                            <TextField
+                              sx={{ mb: 3 }}
+                              fullWidth
+                              id="coverLetter"
+                              name="coverLetter"
+                              multiline
+                              rows={4}
+                              placeholder="Mention in details what relevant skill or past experience you have for this internship."
+                              value={formdata.coverLetter}
+                              onChange={changeHandler}
+                              required
+                            />
+
+                            <div style={{ fontWeight: "700" }}>
+                              If you want to share any documents or files,
+                              please upload it on Google Drive or Dropbox and
+                              paste the public link in the answer.
+                            </div>
+                            <TextField
+                              sx={{ mb: 3 }}
+                              fullWidth
+                              id="assessment"
+                              name="assessment"
+                              multiline
+                              rows={2}
+                              placeholder="Enter your assessment"
+                              value={formdata.assessment}
+                              onChange={changeHandler}
+                              required
+                            />
+                          </DialogContentText>
+                          <DialogActions>
+                            <Button
+                              type="submit"
+                              variant="contained"
+                              onClick={applyForAJob}
+                            >
+                              Submit
+                            </Button>
+                          </DialogActions>
+                        </form>
+                      </DialogContent>
+                    </Card>
+                  </>
+                )}
+              </Box>
+              <Box sx={{ flex: 1, p: 2 }}>
+                <Card sx={{ p: 2 }}>
+                  {canApply ? (
+                    <Button
+                      onClick={applyForAJob}
+                      sx={{ fontSize: "13px" }}
+                      variant="contained"
+                    >
+                      Apply for this Job
+                    </Button>
+                  ) : (
+                    <Button
+                      sx={{ fontSize: "13px" }}
+                      variant="contained"
+                      disabled
+                    >
+                      {userInfo
+                        ? isOwner
+                          ? "Owner cannot apply"
+                          : "Recruiters cannot apply"
+                        : "Login to apply"}
+                    </Button>
+                  )}
+
+                  {/* Report button — shown to logged-in regular users only */}
+                  {userInfo &&
+                    Number(userInfo?.role?.role ?? userInfo?.role ?? 0) ===
+                      0 && (
+                      <Button
+                        onClick={() => setReportOpen(true)}
+                        sx={{ fontSize: "13px", mt: 1 }}
+                        variant="outlined"
+                        color="warning"
+                        startIcon={<FlagOutlinedIcon />}
+                        fullWidth
+                      >
+                        Report Job
+                      </Button>
+                    )}
+                </Card>
+              </Box>
+            </Stack>
+          </Container>
+        </Box>
+        <Footer />
+      </Box>
+
+      {/* ── Report job dialog ─────────────────────────────────────────── */}
+      <Dialog
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Report This Job</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            Tell us why you think this job is suspicious or inappropriate. Our
+            admin team will review it.
+          </DialogContentText>
+
+          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+            <InputLabel>Reason *</InputLabel>
+            <Select
+              value={reportReason}
+              label="Reason *"
+              onChange={(e) => setReportReason(e.target.value)}
+            >
+              {REPORT_REASONS.map((r) => (
+                <MenuItem key={r.value} value={r.value}>
+                  {r.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <TextField
+            label="Additional details (optional)"
+            multiline
+            rows={3}
+            fullWidth
+            size="small"
+            value={reportDetails}
+            onChange={(e) => setReportDetails(e.target.value)}
+            inputProps={{ maxLength: 1000 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReportOpen(false)} disabled={reportLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleReportSubmit}
+            variant="contained"
+            color="warning"
+            disabled={!reportReason || reportLoading}
+          >
+            {reportLoading ? "Submitting…" : "Submit Report"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+};
+
+export default SingleJob;
